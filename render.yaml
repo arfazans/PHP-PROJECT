@@ -1,5 +1,0 @@
-services:
-  - type: web
-    name: php-expense-tracker
-    env: php
-    startCommand: php -S 0.0.0.0:$PORT
