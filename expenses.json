@@ -1,1 +1,9 @@
-[]
+[
+    {
+        "id": 1776316328,
+        "date": "2026-04-16",
+        "category": "Travel",
+        "amount": 500,
+        "description": "bus fare from thane to bandra"
+    }
+]

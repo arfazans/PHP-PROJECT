@@ -1,5 +1,5 @@
 <?php
-session_start();
+$pageTitle = "Add Expense";
 
 $message = "";
 $msgType = "";
@@ -26,7 +26,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $expenses = [];
 
         if (file_exists($file)) {
-            $expenses = json_decode(file_get_contents($file), true);
+            $content = file_get_contents($file);
+            if (!empty($content)) {
+                $expenses = json_decode($content, true);
+            }
         }
 
         $expenses[] = $expense;
@@ -36,63 +39,46 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $msgType = "success";
     }
 }
+include 'includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Add Expense</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
 
-<header><h1>💰 Expense Tracker</h1></header>
+<h2>Add New Expense</h2>
 
-<nav>
-    <a href="index.php">Home</a>
-    <a href="add_expense.php" class="active">Add Expense</a>
-    <a href="view_expense.php">View Expenses</a>
-    <a href="summary.php">Summary</a>
-</nav>
+<?php if ($message != ""): ?>
+    <div class="alert alert-<?php echo $msgType; ?>">
+        <?php echo ($msgType == 'success') ? '✅' : '❌'; ?> &nbsp; <?php echo $message; ?>
+    </div>
+<?php endif; ?>
 
-<div class="container">
-    <h2>Add New Expense</h2>
+<form method="POST" action="add_expense.php" style="background:#fff; padding:30px; border-radius:12px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+    <div class="form-group">
+        <label>Date *</label>
+        <input type="date" name="date" value="<?php echo date('Y-m-d'); ?>" required>
+    </div>
 
-    <?php if ($message != ""): ?>
-        <div class="alert alert-<?php echo $msgType; ?>"><?php echo $message; ?></div>
-    <?php endif; ?>
+    <div class="form-group">
+        <label>Category *</label>
+        <select name="category" required>
+            <option value="">-- Select --</option>
+            <option value="Food">Food</option>
+            <option value="Travel">Travel</option>
+            <option value="Bills">Bills</option>
+            <option value="Shopping">Shopping</option>
+            <option value="Other">Other</option>
+        </select>
+    </div>
 
-    <form method="POST" action="add_expense.php">
+    <div class="form-group">
+        <label>Amount (₹) *</label>
+        <input type="number" name="amount" step="0.01" min="0" placeholder="e.g. 250" required>
+    </div>
 
-        <div class="form-group">
-            <label>Date *</label>
-            <input type="date" name="date" value="<?php echo date('Y-m-d'); ?>" required>
-        </div>
+    <div class="form-group">
+        <label>Description</label>
+        <textarea name="description" placeholder="Optional note..."></textarea>
+    </div>
 
-        <div class="form-group">
-            <label>Category *</label>
-            <select name="category" required>
-                <option value="">-- Select --</option>
-                <option value="Food">Food</option>
-                <option value="Travel">Travel</option>
-                <option value="Bills">Bills</option>
-                <option value="Other">Other</option>
-            </select>
-        </div>
+    <button type="submit">Save Expense</button>
+</form>
 
-        <div class="form-group">
-            <label>Amount (₹) *</label>
-            <input type="number" name="amount" step="0.01" min="0" placeholder="e.g. 250" required>
-        </div>
-
-        <div class="form-group">
-            <label>Description</label>
-            <textarea name="description" placeholder="Optional note..."></textarea>
-        </div>
-
-        <button type="submit">Save Expense</button>
-    </form>
-</div>
-
-</body>
-</html>
+<?php include 'includes/footer.php'; ?>

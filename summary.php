@@ -1,95 +1,151 @@
 <?php
-session_start();
+$pageTitle = "Summary";
+include 'includes/header.php';
 
 $file     = "expenses.json";
 $expenses = [];
 
 if (file_exists($file)) {
-    $expenses = json_decode(file_get_contents($file), true);
-}
-
-$total      = 0;
-$categories = ["Food" => 0, "Travel" => 0, "Bills" => 0, "Other" => 0];
-
-foreach ($expenses as $exp) {
-    $total += $exp["amount"];
-
-    if (isset($categories[$exp["category"]])) {
-        $categories[$exp["category"]] += $exp["amount"];
+    $content = file_get_contents($file);
+    if (!empty($content)) {
+        $expenses = json_decode($content, true);
     }
 }
+
+$totalAllTime = 0;
+$totalThisMonth = 0;
+$categories = [];
+
+$currentMonth = date('Y-m');
+
+foreach ($expenses as $exp) {
+    if (!isset($exp["amount"])) continue;
+    
+    $amt = $exp["amount"];
+    $totalAllTime += $amt;
+    
+    if (strpos($exp["date"], $currentMonth) === 0) {
+        $totalThisMonth += $amt;
+    }
+
+    $cat = $exp["category"];
+    if (!isset($categories[$cat])) {
+        $categories[$cat] = 0;
+    }
+    $categories[$cat] += $amt;
+}
+
+// Prepare Data for Chart
+$chartLabels = array_keys($categories);
+$chartData = array_values($categories);
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Summary</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
 
-<header><h1>💰 Expense Tracker</h1></header>
+<h2>Expense Summary</h2>
 
-<nav>
-    <a href="index.php">Home</a>
-    <a href="add_expense.php">Add Expense</a>
-    <a href="view_expense.php">View Expenses</a>
-    <a href="summary.php" class="active">Summary</a>
-</nav>
+<?php if (count($expenses) == 0): ?>
+    <div class="empty-msg">No data to summarize yet. <a href="add_expense.php">Add an expense.</a></div>
+<?php else: ?>
 
-<div class="container">
-    <h2>Expense Summary</h2>
+    <div class="summary-grid">
+        <div class="card highlight">
+            <div class="label">Total (All Time)</div>
+            <div class="amount">₹<?php echo number_format($totalAllTime, 2); ?></div>
+        </div>
+        <div class="card">
+            <div class="label">This Month</div>
+            <div class="amount">₹<?php echo number_format($totalThisMonth, 2); ?></div>
+        </div>
+        <div class="card">
+            <div class="label">Total Entries</div>
+            <div class="amount"><?php echo count($expenses); ?></div>
+        </div>
+    </div>
 
-    <?php if (count($expenses) == 0): ?>
-        <p class="empty-msg">No data to summarize yet. <a href="add_expense.php">Add an expense.</a></p>
-    <?php else: ?>
-
-        <div class="summary-grid">
-            <div class="card">
-                <div class="label">Total Expenses</div>
-                <div class="amount">₹<?php echo number_format($total, 2); ?></div>
-            </div>
-            <div class="card">
-                <div class="label">No. of Entries</div>
-                <div class="amount"><?php echo count($expenses); ?></div>
+    <div style="display:flex; flex-wrap:wrap; gap:30px; margin-top:20px;">
+        
+        <!-- Category Table -->
+        <div style="flex:1; min-width:300px;">
+            <h2 style="font-size:18px; border-bottom:none; margin-bottom:15px; padding-bottom:0;">Category Breakdown</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Total (₹)</th>
+                            <th>%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($categories as $cat => $amt): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($cat); ?></td>
+                            <td style="font-weight: 600;"><?php echo number_format($amt, 2); ?></td>
+                            <td>
+                                <?php
+                                if ($totalAllTime > 0) {
+                                    echo number_format(($amt / $totalAllTime) * 100, 1) . "%";
+                                } else {
+                                    echo "0%";
+                                }
+                                ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        
+                        <tr class="total-row">
+                            <td>Total</td>
+                            <td>₹<?php echo number_format($totalAllTime, 2); ?></td>
+                            <td>100%</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <h2>Category-wise Breakdown</h2>
+        <!-- Chart.js Canvas -->
+        <div style="flex:1; min-width:300px;">
+            <div class="chart-container" style="margin-bottom:0; max-height: 400px; padding: 20px;">
+                <canvas id="expenseChart" width="300" height="300"></canvas>
+            </div>
+        </div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Category</th>
-                    <th>Total (₹)</th>
-                    <th>% of Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($categories as $cat => $amt): ?>
-                <tr>
-                    <td><?php echo $cat; ?></td>
-                    <td><?php echo number_format($amt, 2); ?></td>
-                    <td>
-                        <?php
-                        if ($total > 0) {
-                            echo number_format(($amt / $total) * 100, 1) . "%";
-                        } else {
-                            echo "0%";
+    </div>
+
+    <!-- Render Chart -->
+    <script>
+        const ctx = document.getElementById('expenseChart').getContext('2d');
+        const labels = <?php echo json_encode($chartLabels); ?>;
+        const data = <?php echo json_encode($chartData); ?>;
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: [
+                        '#2a5298', '#e74c3c', '#f1c40f', '#2ecc71', '#9b59b6', '#34495e', '#e67e22'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            font: { family: "'Inter', sans-serif" }
                         }
-                        ?>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
+                    }
+                },
+                cutout: '65%'
+            }
+        });
+    </script>
+<?php endif; ?>
 
-                <tr class="total-row">
-                    <td>Total</td>
-                    <td>₹<?php echo number_format($total, 2); ?></td>
-                    <td>100%</td>
-                </tr>
-            </tbody>
-        </table>
-    <?php endif; ?>
-</div>
-</body>
-</html>
+<?php include 'includes/footer.php'; ?>

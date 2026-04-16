@@ -1,5 +1,5 @@
 <?php
-session_start();
+$pageTitle = "View Expenses";
 
 $file     = "expenses.json";
 $expenses = [];
@@ -9,7 +9,10 @@ if (isset($_GET["delete"])) {
     $deleteId = (int)$_GET["delete"];
 
     if (file_exists($file)) {
-        $expenses = json_decode(file_get_contents($file), true);
+        $content = file_get_contents($file);
+        if (!empty($content)) {
+            $expenses = json_decode($content, true);
+        }
 
         foreach ($expenses as $key => $exp) {
             if ($exp["id"] == $deleteId) {
@@ -20,47 +23,40 @@ if (isset($_GET["delete"])) {
 
         $expenses = array_values($expenses);
         file_put_contents($file, json_encode($expenses, JSON_PRETTY_PRINT));
-        $message = "Expense deleted.";
+        $message = "Expense deleted successfully.";
     }
 }
 
 if (file_exists($file)) {
-    $expenses = json_decode(file_get_contents($file), true);
+    $content = file_get_contents($file);
+    if (!empty($content)) {
+        $expenses = json_decode($content, true);
+    }
 }
+
+// Sort by date descending
+usort($expenses, function($a, $b) {
+    return strtotime($b['date']) <=> strtotime($a['date']);
+});
 
 $total = 0;
 foreach ($expenses as $exp) {
-    $total += $exp["amount"];
+    if(isset($exp["amount"])) $total += $exp["amount"];
 }
+
+include 'includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>View Expenses</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
 
-<header><h1>💰 Expense Tracker</h1></header>
+<h2>All Expenses</h2>
 
-<nav>
-    <a href="index.php">Home</a>
-    <a href="add_expense.php">Add Expense</a>
-    <a href="view_expense.php" class="active">View Expenses</a>
-    <a href="summary.php">Summary</a>
-</nav>
+<?php if ($message != ""): ?>
+    <div class="alert alert-success">✅ &nbsp; <?php echo $message; ?></div>
+<?php endif; ?>
 
-<div class="container">
-    <h2>All Expenses</h2>
-
-    <?php if ($message != ""): ?>
-        <div class="alert alert-success"><?php echo $message; ?></div>
-    <?php endif; ?>
-
-    <?php if (count($expenses) == 0): ?>
-        <p class="empty-msg">No expenses recorded yet. <a href="add_expense.php">Add one?</a></p>
-    <?php else: ?>
+<?php if (count($expenses) == 0): ?>
+    <div class="empty-msg">No expenses recorded yet. <a href="add_expense.php">Add one?</a></div>
+<?php else: ?>
+    <div class="table-container">
         <table>
             <thead>
                 <tr>
@@ -69,7 +65,7 @@ foreach ($expenses as $exp) {
                     <th>Category</th>
                     <th>Amount (₹)</th>
                     <th>Description</th>
-                    <th>Action</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -78,27 +74,29 @@ foreach ($expenses as $exp) {
                     <td><?php echo $i++; ?></td>
                     <td><?php echo htmlspecialchars($exp["date"]); ?></td>
                     <td><?php echo htmlspecialchars($exp["category"]); ?></td>
-                    <td><?php echo number_format($exp["amount"], 2); ?></td>
+                    <td style="font-weight: 600;"><?php echo number_format($exp["amount"], 2); ?></td>
                     <td><?php echo htmlspecialchars($exp["description"]); ?></td>
                     <td>
-                        <a class="delete-btn"
-                           href="view_expense.php?delete=<?php echo $exp['id']; ?>"
-                           onclick="return confirm('Delete this expense?')">
-                           Delete
-                        </a>
+                        <div class="action-links">
+                            <a class="edit-btn" href="edit_expense.php?id=<?php echo $exp['id']; ?>">✏️ Edit</a>
+                            <a class="delete-btn"
+                               href="view_expense.php?delete=<?php echo $exp['id']; ?>"
+                               onclick="return confirm('Are you sure you want to delete this expense?')">
+                               🗑️ Delete
+                            </a>
+                        </div>
                     </td>
                 </tr>
                 <?php endforeach; ?>
 
                 <tr class="total-row">
-                    <td colspan="3">Total</td>
+                    <td colspan="3" style="text-align: right;">Total</td>
                     <td>₹<?php echo number_format($total, 2); ?></td>
                     <td colspan="2"></td>
                 </tr>
             </tbody>
         </table>
-    <?php endif; ?>
-</div>
+    </div>
+<?php endif; ?>
 
-</body>
-</html>
+<?php include 'includes/footer.php'; ?>
